@@ -1,0 +1,9 @@
+using BDMAgent.Application.Abstractions; using BDMAgent.Domain.Entities; using BDMAgent.Infrastructure.Data; using Microsoft.AspNetCore.Mvc; using Microsoft.EntityFrameworkCore;
+namespace BDMAgent.Api.Controllers;
+[ApiController][Route("api/outreach")] public sealed class OutreachController(BdmDbContext db,IEmailSender sender):ControllerBase
+{
+ [HttpGet("pending")] public async Task<IReadOnlyList<OutreachDraft>> Pending()=>await db.OutreachDrafts.Where(x=>x.Status=="Draft").OrderBy(x=>x.CreatedUtc).ToListAsync();
+ [HttpPost("{id:guid}/approve")] public async Task<IActionResult> Approve(Guid id){var x=await db.OutreachDrafts.FindAsync(id);if(x is null)return NotFound();x.Status="Approved";x.ApprovedUtc=DateTime.UtcNow;await db.SaveChangesAsync();return Ok(x);}
+ [HttpPost("{id:guid}/reject")] public async Task<IActionResult> Reject(Guid id){var x=await db.OutreachDrafts.FindAsync(id);if(x is null)return NotFound();x.Status="Rejected";await db.SaveChangesAsync();return Ok(x);}
+ [HttpPost("{id:guid}/send")] public async Task<IActionResult> Send(Guid id,CancellationToken ct){var x=await db.OutreachDrafts.FindAsync(id);if(x is null)return NotFound();if(x.Status!="Approved")return BadRequest("Draft must be approved first.");var lead=await db.Leads.FindAsync(new object[]{x.LeadId},ct);if(string.IsNullOrWhiteSpace(lead?.ContactEmail))return BadRequest("Lead has no email.");try{x.ExternalMessageId=await sender.SendAsync(lead.ContactEmail,x.Subject,x.Body,ct);x.Status="Sent";x.SentUtc=DateTime.UtcNow;lead.Status="Contacted";db.FollowUps.Add(new FollowUp{LeadId=lead.Id,SequenceNo=1,DueUtc=DateTime.UtcNow.AddDays(3),Subject="Following up: "+x.Subject,Body="Hi, just following up on my previous note. If this is relevant, happy to discuss briefly."});await db.SaveChangesAsync(ct);return Ok(x);}catch(Exception e){x.Status="Failed";await db.SaveChangesAsync(ct);return Problem(e.Message);}}
+}

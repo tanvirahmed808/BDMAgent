@@ -1,0 +1,21 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SQL_SA_PASSWORD}"
+    ports: ["1433:1433"]
+    volumes: ["bdm-sql:/var/opt/mssql"]
+  api:
+    build: .
+    depends_on: [sqlserver]
+    environment:
+      ConnectionStrings__SqlServer: "Server=sqlserver,1433;Database=BdmAgentDb;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True"
+      AI__ApiKey: "${AI_API_KEY:-}"
+      Email__SmtpHost: "${SMTP_HOST:-}"
+      Email__SmtpPort: "${SMTP_PORT:-587}"
+      Email__Username: "${SMTP_USERNAME:-}"
+      Email__Password: "${SMTP_PASSWORD:-}"
+      Email__From: "${SMTP_FROM:-}"
+    ports: ["8080:8080"]
+volumes: { bdm-sql: {} }

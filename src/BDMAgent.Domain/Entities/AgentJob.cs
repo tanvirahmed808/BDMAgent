@@ -1,0 +1,2 @@
+namespace BDMAgent.Domain.Entities;
+public sealed class AgentJob { public Guid Id {get;set;}=Guid.NewGuid(); public string AgentType {get;set;}=""; public string Status {get;set;}="Queued"; public string PayloadJson {get;set;}="{}"; public DateTime CreatedUtc {get;set;}=DateTime.UtcNow; public DateTime? CompletedUtc {get;set;} }
